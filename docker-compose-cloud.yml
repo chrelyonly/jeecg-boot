@@ -2,13 +2,14 @@ version: '2'
 services:
   jeecg-boot-mysql:
     build:
-      context: ../db
+      context: ./jeecg-boot/db
     environment:
       MYSQL_ROOT_PASSWORD: root
       MYSQL_ROOT_HOST: '%'
       TZ: Asia/Shanghai
     restart: always
     container_name: jeecg-boot-mysql
+    image: jeecg-boot-mysql
     command:
       --character-set-server=utf8mb4
       --collation-server=utf8mb4_general_ci
@@ -26,8 +27,61 @@ services:
     ports:
       - 6379:6379
     restart: always
-    container_name: jeecg-boot-redis
     hostname: jeecg-boot-redis
+    container_name: jeecg-boot-redis
+    networks:
+      - jeecg-boot
+
+  jeecg-boot-nacos:
+    restart: always
+    build:
+      context: ./jeecg-boot/jeecg-server-cloud/jeecg-cloud-nacos
+    ports:
+      - 8848:8848
+    container_name: jeecg-boot-nacos
+    depends_on:
+      - jeecg-boot-mysql
+    hostname: jeecg-boot-nacos
+    networks:
+      - jeecg-boot
+
+  jeecg-boot-system:
+    depends_on:
+      - jeecg-boot-nacos
+    build:
+      context: ./jeecg-boot/jeecg-server-cloud/jeecg-system-cloud-start
+    container_name: jeecg-system-start
+    hostname: jeecg-boot-system
+    restart: on-failure
+    environment:
+      - TZ=Asia/Shanghai
+    networks:
+      - jeecg-boot
+
+  jeecg-boot-demo:
+    depends_on:
+      - jeecg-boot-nacos
+    build:
+      context: ./jeecg-boot/jeecg-server-cloud/jeecg-demo-cloud-start
+    container_name: jeecg-demo-start
+    hostname: jeecg-boot-demo
+    restart: on-failure
+    environment:
+      - TZ=Asia/Shanghai
+    networks:
+      - jeecg-boot
+
+  jeecg-boot-gateway:
+    restart: on-failure
+    build:
+      context: ./jeecg-boot/jeecg-server-cloud/jeecg-cloud-gateway
+    ports:
+      - 9999:9999
+    depends_on:
+      - jeecg-boot-nacos
+      - jeecg-boot-system
+    container_name: jeecg-boot-gateway
+    hostname: jeecg-boot-gateway
     networks:
       - jeecg-boot
 
@@ -42,63 +96,6 @@ services:
 #    environment:
 #      RABBITMQ_DEFAULT_USER: guest
 #      RABBITMQ_DEFAULT_PASS: guest
-
-
-  jeecg-boot-nacos:
-    restart: always
-    build:
-      context: ./jeecg-cloud-nacos
-    ports:
-      - 8848:8848
-    container_name: jeecg-boot-nacos
-    hostname: jeecg-boot-nacos
-    networks:
-      - jeecg-boot
-
-  jeecg-boot-system:
-    depends_on:
-      - jeecg-boot-nacos
-    build:
-      context: ./jeecg-system-cloud-start
-    container_name: jeecg-system-start
-    hostname: jeecg-boot-system
-    restart: on-failure
-    environment:
-      - TZ=Asia/Shanghai
-    networks:
-      - jeecg-boot
-
-  jeecg-boot-demo:
-    depends_on:
-      - jeecg-boot-nacos
-    build:
-      context: ./jeecg-demo-cloud-start
-    container_name: jeecg-demo-start
-    hostname: jeecg-boot-demo
-    restart: on-failure
-    environment:
-      - TZ=Asia/Shanghai
-    networks:
-      - jeecg-boot
-
-  jeecg-boot-gateway:
-    restart: on-failure
-    build:
-      context: ./jeecg-cloud-gateway
-    ports:
-      - 9999:9999
-    depends_on:
-      - jeecg-boot-nacos
-      - jeecg-boot-system
-    container_name: jeecg-boot-gateway
-    hostname: jeecg-boot-gateway
-    networks:
-      - jeecg-boot
-
-networks:
-  jeecg-boot:
-    name: jeecg_boot
-
 #  jeecg-boot-sentinel:
 #    restart: on-failure
 #    build:
@@ -120,3 +117,19 @@ networks:
 #      - 9080:9080
 #    container_name: jeecg-boot-xxljob
 #    hostname: jeecg-boot-xxljob
+
+  jeecg-vue:
+    build:
+      context: ./jeecgboot-vue3
+    container_name: jeecgboot-vue3-nginx
+    image: jeecgboot-vue3
+    depends_on:
+      - jeecg-boot-system
+    networks:
+      - jeecg-boot
+    ports:
+      - 80:80
+
+networks:
+  jeecg-boot:
+    name: jeecg_boot
